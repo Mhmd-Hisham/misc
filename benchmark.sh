@@ -18,8 +18,8 @@ nvidia-smi -c EXCLUSIVE_PROCESS        # restrict to only one process can create
 # nvidia-smi -lmc 5001                   # set memory freq in MHz
 
 # get compute capability from nvidia-smi
-capability=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -n1 | tr -d '.')
-
+# capability=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -n1 | tr -d '.')
+capability="90"
 benchmark_repo() {
     # take test from function call first arg
     # baseline or improved or branch name
@@ -32,7 +32,7 @@ benchmark_repo() {
     cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=$capability .
     cmake --build build_cuda --config Release
 
-    python -m pip install -e .
+    python -m pip install -e . -y
 
     # run official bnb benchmark
     python ./benchmarking/inference_benchmark.py "meta-llama/Meta-Llama-3.1-8B-Instruct" \
@@ -52,7 +52,7 @@ benchmark_repo() {
 
     # # benchmark with my custom stress test
     # python stress_test.py normal_config.json "${output_dir}/${test_type}_run.csv" "${output_dir}/${test_type}_metadata.csv"
-    python -m pip uninstall bitsandbytes
+    python -m pip uninstall bitsandbytes -y
 }
 
 # clone bnb original repo
