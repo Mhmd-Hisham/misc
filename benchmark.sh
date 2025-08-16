@@ -32,7 +32,7 @@ benchmark_repo() {
     cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=$capability .
     cmake --build build_cuda --config Release
 
-    python -m pip install -e . -y
+    python -m pip install -e .
 
     # run official bnb benchmark
     python ./benchmarking/inference_benchmark.py "meta-llama/Meta-Llama-3.1-8B-Instruct" \
