@@ -8,7 +8,6 @@ cd bnb-benchmark
 export BNB_TEST_DEVICE="cuda"
 export CUDA_LAUNCH_BLOCKING=1
 mkdir benchmark_results
-alias python="python3"
 
 nvidia-smi -pm 1                       # enable persistence mode, stop gpu from powering down when idle
 nvidia-smi --auto-boost-default=0      # disable auto boost aka automatic frequency scaling mechanism
@@ -60,7 +59,7 @@ benchmark_repo() {
 git clone https://github.com/bitsandbytes-foundation/bitsandbytes.git
 
 # copy the stress test files to the baseline repo
-cp normal_config.json ncu_config.json stress_test.py bitsandbytes/
+cp ../normal_config.json ../ncu_config.json ../stress_test.py bitsandbytes/
 
 # benchmark
 cd bitsandbytes
@@ -90,9 +89,9 @@ for branch in "${benchmark_branches[@]}"; do
 
     # checkout the branch
     git checkout "$branch"
-
+    echo "$(pwd)"
     # copy the stress test files to the branch
-    cp ../normal_config.json ../ncu_config.json ../stress_test.py .
+    cp ../../normal_config.json ../../ncu_config.json ../../stress_test.py .
 
     benchmark_repo "$branch"
 
