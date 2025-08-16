@@ -18,6 +18,9 @@ nvidia-smi -c EXCLUSIVE_PROCESS        # restrict to only one process can create
 # nvidia-smi -lgc 2100,2100              # set min and max graphics freq in MHz
 # nvidia-smi -lmc 5001                   # set memory freq in MHz
 
+# get compute capability from nvidia-smi
+capability=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -n1 | tr -d '.')
+
 benchmark_repo() {
     # take test from function call first arg
     # baseline or improved or branch name
@@ -27,7 +30,7 @@ benchmark_repo() {
 
     # build for cuda
     rm -rf build_cuda
-    cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=90 .
+    cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=$capability .
     cmake --build build_cuda --config Release
 
     # run official bnb benchmark
@@ -92,6 +95,8 @@ for branch in "${benchmark_branches[@]}"; do
 
     # reset so we can switch to a new branch
     git reset --hard
+    git clean -fdx
+
 done
 
 # move back from the fork
