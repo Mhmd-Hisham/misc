@@ -33,24 +33,27 @@ benchmark_repo() {
     cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=$capability .
     cmake --build build_cuda --config Release
 
+    python -m pip install -e .
+
     # run official bnb benchmark
     python ./benchmarking/inference_benchmark.py "meta-llama/Meta-Llama-3.1-8B-Instruct" \
             --configs int8 nf4 nf4-dq \
             --out-dir "${output_dir}/Llamma-3.1-8B-Instruct"
 
     # profile the stress test with ncu
-    ncu -f \
-        --set full \
-        --target-processes all \
-        --kernel-name "regex:k(Quantize|Dequantize)Blockwise" \
-        --export "${output_dir}/${test_name}.ncu-rep" \
-        python stress_test.py ncu_config.json "${output_dir}/${test_type}_ncu_run.csv" "${output_dir}/${test_type}_ncu_metadata.csv"
+    # ncu -f \
+    #     --set full \
+    #     --target-processes all \
+    #     --kernel-name "regex:k(Quantize|Dequantize)Blockwise" \
+    #     --export "${output_dir}/${test_name}.ncu-rep" \
+    #     python stress_test.py ncu_config.json "${output_dir}/${test_type}_ncu_run.csv" "${output_dir}/${test_type}_ncu_metadata.csv"
 
-    # export the csv
-    ncu --import "${output_dir}/${test_name}.ncu-rep" --csv --page raw > "${output_dir}/${test_name}.csv"
+    # # export the csv
+    # ncu --import "${output_dir}/${test_name}.ncu-rep" --csv --page raw > "${output_dir}/${test_name}.csv"
 
-    # benchmark with my custom stress test
-    python stress_test.py normal_config.json "${output_dir}/${test_type}_run.csv" "${output_dir}/${test_type}_metadata.csv"
+    # # benchmark with my custom stress test
+    # python stress_test.py normal_config.json "${output_dir}/${test_type}_run.csv" "${output_dir}/${test_type}_metadata.csv"
+    python -m pip uninstall bitsandbytes
 }
 
 # clone bnb original repo
