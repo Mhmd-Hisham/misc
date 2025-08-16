@@ -1,6 +1,7 @@
 # Huge thanks to Lawrence Atkins & David MacLeod
 # https://www.speechmatics.com/company/articles-and-news/timing-operations-in-pytorch
 
+import json
 import random
 import sys
 from typing import Callable
@@ -8,7 +9,6 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 import torch
-
 from bitsandbytes import functional as F
 
 SEED = 42
@@ -18,48 +18,25 @@ torch.manual_seed(SEED)
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 
-ITERATIONS = 1000
-WARMUP_ITER = 10
-
-
-DEVICE = ["cuda"]
-DTYPE = [torch.float32, torch.float16, torch.bfloat16]
-QUANT_TYPE = ["fp4", "nf4"]
-BLOCKSIZE = [64, 128, 256, 512, 1024, 2048, 4096]
-TENSOR_SHAPE = [1024, 2048, 4096, 8192, 16384]
-
-###########################################################
-################ For testing the script ###################
-ITERATIONS = 1
-WARMUP_ITER = 1
-DEVICE = ["cuda"]
-DTYPE = [torch.float32]
-QUANT_TYPE = ["fp4"]
-BLOCKSIZE = [64]
-TENSOR_SHAPE = [1024]
-###########################################################
-
-
-# metadata logger, used if benchmarking with ncu only
-LOGGER = []
-
-
-# clear the L2 cache, 5090 has 96 MB L2 Cache
-def clear_l2_cache(cache_size=96):
+# clear the L2 cache, H100 has 50 MB L2 Cache
+def clear_l2_cache(cache_size=50):
     dummy_data = torch.empty(int(cache_size * (1024**2)), dtype=torch.int8, device="cuda")
     dummy_data.zero_()
     torch.cuda.synchronize()
     del dummy_data
 
+def write_to_logger(params, n_times):
+    for __ in range(n_times):
+        LOGGER.append(params)
 
 def benchmark_cuda_kernel(
     iterations: int, warmup_iterations: int, params_to_log: dict, n_logs: int, kernel: Callable, *args, **kwargs
 ):
     # warmup iterations
+    params_to_log["is_warmup"] = True
     for _ in range(warmup_iterations):
         kernel(*args, **kwargs)
-        params_to_log["is_warmup"] = True
-        LOGGER.append(params_to_log)
+        write_to_logger(params_to_log, 1)
     torch.cuda.synchronize()
 
     # init cuda events
@@ -67,14 +44,13 @@ def benchmark_cuda_kernel(
     end_events = [torch.cuda.Event(enable_timing=True) for _ in range(iterations)]
 
     clear_l2_cache()
+    params_to_log["is_warmup"] = False
     for i in range(iterations):
         torch.cuda._sleep(1_000_000)
         start_events[i].record()
         kernel(*args, **kwargs)
         end_events[i].record()
-        for __ in range(n_logs):
-            params_to_log["is_warmup"] = False
-            LOGGER.append(params_to_log)
+        write_to_logger(params_to_log, 2)
     torch.cuda.synchronize()
 
     times = [s.elapsed_time(e) for s, e in zip(start_events, end_events)]
@@ -89,9 +65,9 @@ def quantize_dequantize_kernel(A1, blocksize=0, quant_type=0):
     F.dequantize_4bit(qa, SA, blocksize=blocksize, quant_type=quant_type)
 
 
-def save_metadata():
+def save_metadata(path_to_json):
     df = pd.DataFrame(LOGGER)
-    df.to_csv("stress_test_metadata.csv")
+    df.to_csv(path_to_json)
 
 
 def get_stats(prefix, times):
@@ -192,13 +168,32 @@ def main():
                         )
 
     df = pd.DataFrame(results)
-    df.to_csv(sys.argv[1], index=False)
-    save_metadata()
+    df.to_csv(OUTPUT_CSV, index=False)
+    save_metadata(METADATA_CSV)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python stress_test.py <output.csv>")
+    if len(sys.argv) != 4:
+        print("Usage: python stress_test.py <config.json> <output.csv> <metadata.csv>")
         sys.exit()
     torch.cuda.empty_cache()
+
+    CONFIG_FILE = sys.argv[1]
+    OUTPUT_CSV = sys.argv[2]
+    METADATA_CSV = sys.argv[2]
+
+    with open(CONFIG_FILE, "r") as f:
+        config = json.load(f)
+
+    ITERATIONS = config["ITERATIONS"]
+    WARMUP_ITER = config["WARMUP_ITER"]
+    DEVICE = config["DEVICE"]
+    DTYPE = [getattr(torch, d) for d in config["DTYPE"]]
+    QUANT_TYPE = config["QUANT_TYPE"]
+    BLOCKSIZE = config["BLOCKSIZE"]
+    TENSOR_SHAPE = config["TENSOR_SHAPE"]
+
+    # metadata logger, useful when benchmarking with ncu
+    LOGGER = []
+
     main()

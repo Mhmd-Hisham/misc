@@ -4,27 +4,11 @@ rm -rf bnb-benchmark
 mkdir bnb-benchmark
 cd bnb-benchmark
 
-# the branch to benchmark
-benchmark_branch="cuda-branchless-binary-search"
-
 # set the testing device to be cuda only
 export BNB_TEST_DEVICE="cuda"
 export CUDA_LAUNCH_BLOCKING=1
-
 mkdir benchmark_results
-
-# clone my fork
-git clone https://github.com/Mhmd-Hisham/bitsandbytes.git
-cd bitsandbytes
-git checkout "${benchmark_branch}"
-
-# move stress test to the fork
-cp ../../stress_test.py .
-
-# build for cuda
-rm -rf build_cuda
-cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=75 .
-cmake --build build_cuda --config Release
+alias python="python3"
 
 nvidia-smi -pm 1                       # enable persistence mode, stop gpu from powering down when idle
 nvidia-smi --auto-boost-default=0      # disable auto boost aka automatic frequency scaling mechanism
@@ -34,34 +18,87 @@ nvidia-smi -c EXCLUSIVE_PROCESS        # restrict to only one process can create
 # nvidia-smi -lgc 2100,2100              # set min and max graphics freq in MHz
 # nvidia-smi -lmc 5001                   # set memory freq in MHz
 
-python stress_test.py "../benchmark_results/improved_kernel_run1.csv"
-python stress_test.py "../benchmark_results/improved_kernel_run2.csv"
-python stress_test.py "../benchmark_results/improved_kernel_run3.csv"
+benchmark_repo() {
+    # take test from function call first arg
+    # baseline or improved or branch name
+    local test_type="$1"
+    local output_dir="../benchmark_results/${test_type}_results"
+    local test_name="${test_type}_bnb_kernel"
 
-# chdir and rename the fork
-cd ..
-mv bitsandbytes bitsandbytes_fork
+    # build for cuda
+    rm -rf build_cuda
+    cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=90 .
+    cmake --build build_cuda --config Release
+
+    # run official bnb benchmark
+    python ./benchmarking/inference_benchmark.py "meta-llama/Meta-Llama-3.1-8B-Instruct" \
+            --configs int8 nf4 nf4-dq \
+            --out-dir "${output_dir}/Llamma-3.1-8B-Instruct"
+
+    # profile the stress test with ncu
+    ncu -f \
+        --set full \
+        --target-processes all \
+        --kernel-name "regex:k(Quantize|Dequantize)Blockwise" \
+        --export "${output_dir}/${test_name}.ncu-rep" \
+        python stress_test.py ncu_config.json "${output_dir}/${test_type}_ncu_run.csv" "${output_dir}/${test_type}_ncu_metadata.csv"
+
+    # export the csv
+    ncu --import "${output_dir}/${test_name}.ncu-rep" --csv --page raw > "${output_dir}/${test_name}.csv"
+
+    # benchmark with my custom stress test
+    python stress_test.py normal_config.json "${output_dir}/${test_type}_run.csv" "${output_dir}/${test_type}_metadata.csv"
+}
 
 # clone bnb original repo
 git clone https://github.com/bitsandbytes-foundation/bitsandbytes.git
+
+# copy the stress test files to the baseline repo
+cp normal_config.json ncu_config.json stress_test.py bitsandbytes/
+
+# benchmark
+cd bitsandbytes
+benchmark_repo "baseline"
+
+# get back and rename the baseline repo
+cd ..
+mv bitsandbytes bitsandbytes_baseline
+
+# clone my fork
+git clone https://github.com/Mhmd-Hisham/bitsandbytes.git
+
+# branch list to benchmark
+benchmark_branches=(
+    "cuda-branchless-quantization-float32"
+    "cuda-branchless-quantization-float16"
+    "cuda-branchless-quantization-float32-lut"
+    "cuda-branchless-quantization-float16-lut"
+    "cuda-branchless-dequantization-float32-lut"
+)
+
 cd bitsandbytes
 
-# copy the stress test to the baseline repo
-cp ../../stress_test.py .
+# loop through each path
+for branch in "${benchmark_branches[@]}"; do
+    echo "Processing: $branch"
 
-# build for cuda
-rm -rf build_cuda
-cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=90 .
-cmake --build build_cuda --config Release
+    # checkout the branch
+    git checkout "$branch"
 
-# benchmark the baseline repo
-python stress_test.py "../benchmark_results/baseline_kernel_run1.csv"
-python stress_test.py "../benchmark_results/baseline_kernel_run2.csv"
-python stress_test.py "../benchmark_results/baseline_kernel_run3.csv"
-mv stress_test_metadata.csv "../benchmark_results/stress_test_metadata.csv"
-mv stress_test.py "../benchmark_results/stress_test.py"
+    # copy the stress test files to the branch
+    cp ../normal_config.json ../ncu_config.json ../stress_test.py .
 
+    benchmark_repo "$branch"
+
+    # reset so we can switch to a new branch
+    git reset --hard
+done
+
+# move back from the fork
 cd ..
 
+nvcc --version > benchmark_results/nvcc.txt
+nvidia-smi > benchmark_results/nvidia-smi.txt
+
 # zip the results to download with scp
-zip -r benchmark_results.zip benchmark_results
+zip -r h100_nebius_benchmark_results.zip benchmark_results
