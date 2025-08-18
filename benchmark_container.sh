@@ -3,7 +3,9 @@
 
 # set the testing device to be cuda only
 export BNB_TEST_DEVICE="cuda"
-export CUDA_LAUNCH_BLOCKING=1
+
+set -e
+sudo su
 
 # get repo url and branch name
 REPO_URL=$1
@@ -17,15 +19,9 @@ git clone "$REPO_URL" bitsandbytes
 cd bitsandbytes
 git checkout "$BRANCH"
 
-# copy stress test configs from mounted volume
-cp /workspace/stress_test.py .
-cp /workspace/normal_config.json .
-cp /workspace/ncu_config.json .
-
 # build for cuda and install
-# get compute capability from nvidia-smi
-# capability=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -n1 | tr -d '.')
-capability="90"
+# get compute capability pytorch to avoid compiling for a different compute capability
+capability=$(python -c "import torch; print('{}.{}'.format(*torch.cuda.get_device_capability()))")
 rm -rf build_cuda
 cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=$capability .
 cmake --build build_cuda --config Release
