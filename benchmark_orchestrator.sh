@@ -1,6 +1,7 @@
 #!/bin/bash
 # benchmark the performance of multiple branches/forks against the baseline repo of BNB
 # each benchmark will be run separately in a docker container
+set -e 
 
 # download Meta-Llama-3.1-8B-Instruct at the start
 read -rsp "Enter your Hugging Face token: " HF_TOKEN
@@ -37,7 +38,7 @@ FORK_BRANCHES=(
     "cuda-branchless-dequantization-float32-lut"
 )
 
-mkdir benchmark_results
+mkdir -p benchmark_results
 nvidia-smi -pm 1                       # enable persistence mode, stop gpu from powering down when idle
 nvidia-smi --auto-boost-default=0      # disable auto boost aka automatic frequency scaling mechanism
 

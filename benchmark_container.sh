@@ -5,7 +5,6 @@
 export BNB_TEST_DEVICE="cuda"
 
 set -e
-sudo su
 
 # get repo url and branch name
 REPO_URL=$1
@@ -21,7 +20,9 @@ git checkout "$BRANCH"
 
 # build for cuda and install
 # get compute capability pytorch to avoid compiling for a different compute capability
-capability=$(python -c "import torch; print('{}.{}'.format(*torch.cuda.get_device_capability()))")
+# capability=$(python -c "import torch; print('{}.{}'.format(*torch.cuda.get_device_capability()))")
+# set fixed compute capability
+capability=90
 rm -rf build_cuda
 cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=$capability .
 cmake --build build_cuda --config Release
