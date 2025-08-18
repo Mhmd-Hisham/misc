@@ -3,19 +3,19 @@
 # each benchmark will be run separately in a docker container
 
 # download Meta-Llama-3.1-8B-Instruct
-read -rsp "Enter your Hugging Face token: " HF_TOKEN
-echo
+    read -rsp "Enter your Hugging Face token: " HF_TOKEN
+    echo
 
-mkdir -p models
+    mkdir -p models
 
-python3 -c "
-from huggingface_hub import snapshot_download
-snapshot_download(
-    repo_id='meta-llama/Meta-Llama-3.1-8B-Instruct',
-    local_dir='models/Meta-Llama-3.1-8B-Instruct',
-    token='${HF_TOKEN}'
-)
-"
+    python3 -c "
+    from huggingface_hub import snapshot_download
+    snapshot_download(
+        repo_id='meta-llama/Meta-Llama-3.1-8B-Instruct',
+        local_dir='models/Meta-Llama-3.1-8B-Instruct',
+        token='${HF_TOKEN}'
+    )
+    "
 unset HF_TOKEN
 
 DOCKER_IMAGE="mhmdhisham/pytorch-2.8.0-cuda12.9-cudnn9-devel-ncu:testing"
