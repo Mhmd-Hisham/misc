@@ -18,9 +18,13 @@ torch.manual_seed(SEED)
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 
-# clear the L2 cache, H100 has 50 MB L2 Cache
-def clear_l2_cache(cache_size=50):
-    dummy_data = torch.empty(int(cache_size * (1024**2)), dtype=torch.int8, device="cuda")
+# check if bfloat16 is supported
+BFLOAT16_SUPPORT = torch.cuda.is_bf16_supported()
+
+def clear_l2_cache(device=0):
+    # get cache size from device
+    cache_size = torch.cuda.get_device_properties(device).L2_cache_size
+    dummy_data = torch.empty(cache_size, dtype=torch.int8, device=f"cuda:{device}")
     dummy_data.zero_()
     torch.cuda.synchronize()
     del dummy_data
@@ -188,7 +192,11 @@ if __name__ == "__main__":
     ITERATIONS = config["ITERATIONS"]
     WARMUP_ITER = config["WARMUP_ITER"]
     DEVICE = config["DEVICE"]
-    DTYPE = [getattr(torch, d) for d in config["DTYPE"]]
+    DTYPE = []
+    for dtype in config["DTYPE"]:
+        if dtype == "bfloat16" and not BFLOAT16_SUPPORT:
+            continue
+        DTYPE.append(getattr(torch, dtype))
     QUANT_TYPE = config["QUANT_TYPE"]
     BLOCKSIZE = config["BLOCKSIZE"]
     TENSOR_SHAPE = config["TENSOR_SHAPE"]
