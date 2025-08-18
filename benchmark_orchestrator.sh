@@ -1,26 +1,30 @@
 #!/bin/bash
 # benchmark the performance of multiple branches/forks against the baseline repo of BNB
 # each benchmark will be run separately in a docker container
+
 # download Meta-Llama-3.1-8B-Instruct
-read -rsp "Enter your Hugging Face token: " HF_TOKEN
-echo
+    read -rsp "Enter your Hugging Face token: " HF_TOKEN
+    echo
 
-mkdir -p models
+    mkdir -p models
 
-python3 -c "
-from huggingface_hub import snapshot_download
-snapshot_download(
-    repo_id='meta-llama/Meta-Llama-3.1-8B-Instruct',
-    local_dir='models/Meta-Llama-3.1-8B-Instruct',
-    token='${HF_TOKEN}'
-)
-"
+    python3 -c "
+    from huggingface_hub import snapshot_download
+    snapshot_download(
+        repo_id='meta-llama/Meta-Llama-3.1-8B-Instruct',
+        local_dir='models/Meta-Llama-3.1-8B-Instruct',
+        token='${HF_TOKEN}'
+    )
+    "
 unset HF_TOKEN
 
 DOCKER_IMAGE="mhmdhisham/pytorch-2.8.0-cuda12.9-cudnn9-devel-ncu:testing"
 FORK_URL="https://github.com/Mhmd-Hisham/bitsandbytes.git"
 BASELINE_URL="https://github.com/bitsandbytes-foundation/bitsandbytes.git"
 BASELINE_BRANCH="main"
+
+# pull the docker image
+docker pull $DOCKER_IMAGE
 
 # branch list to benchmark
 FORK_BRANCHES=(
@@ -36,7 +40,6 @@ FORK_BRANCHES=(
 mkdir benchmark_results
 nvidia-smi -pm 1                       # enable persistence mode, stop gpu from powering down when idle
 nvidia-smi --auto-boost-default=0      # disable auto boost aka automatic frequency scaling mechanism
-nvidia-smi -c EXCLUSIVE_PROCESS        # restrict to only one process can create a cuda context on the GPU at any given time
 
 run_benchmark_in_container() {
     local repo_url="$1"
@@ -45,7 +48,7 @@ run_benchmark_in_container() {
 
     echo ">>> Running benchmark: ($branch from $repo_url)"
 
-    docker run --rm --gpus all \
+    docker run --user root --rm --gpus all \
         -v "$(pwd)/models:/workspace/models:ro" \
         -v "$(pwd)/benchmark_results:/workspace/benchmark_results" \
         -v "$(pwd)/stress_test.py:/workspace/stress_test.py" \
