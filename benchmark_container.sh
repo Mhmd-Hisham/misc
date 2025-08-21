@@ -28,7 +28,7 @@ export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
 cp /workspace/stress_test.py .
 cp /workspace/normal_config.json .
 cp /workspace/ncu_config.json .
-cp /workspace/inference_benchmark.py ./benchmarking/inference_benchmark.py
+cp /workspace/inference_benchmark.py .
 
 # build for cuda and install
 # get compute capability pytorch to avoid compiling for a different compute capability
@@ -41,11 +41,12 @@ cmake --build build_cuda --config Release
 python -m pip install -e .
 
 # run official bnb benchmark
+cp -f ../inference_benchmark.py ./benchmarking/inference_benchmark.py
 python ./benchmarking/inference_benchmark.py \
-    "/workspace/models/Meta-Llama-3.1-8B-Instruct" \
+    "/workspace/models/Llama-3.2-1B" \
     --configs int8 nf4 \
     --batches 32 \
-    --out-dir "${OUTPUT_DIR}/Llama-3.1-8B-Instruct"
+    --out-dir "${OUTPUT_DIR}/Llama-3.2-1B"
 
 # profile the stress test with ncu
 # only benchmark kQuantizeBlockwise and kDequantizeBlockwise kernels
