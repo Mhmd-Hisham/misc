@@ -3,7 +3,7 @@
 # each benchmark will be run separately in a docker container
 set -e 
 
-# download Meta-Llama-3.1-8B-Instruct at the start
+# download the model at the start
 read -rsp "Enter your Hugging Face token: " HF_TOKEN
 echo
 
@@ -12,11 +12,19 @@ mkdir -p models
 python3 -c "
 from huggingface_hub import snapshot_download
 snapshot_download(
-    repo_id='meta-llama/Meta-Llama-3.1-8B-Instruct',
-    local_dir='models/Meta-Llama-3.1-8B-Instruct',
+    repo_id='meta-llama/Llama-3.2-1B',
+    local_dir='models/Llama-3.2-1B',
     token='${HF_TOKEN}'
 )
 "
+# python3 -c "
+# from huggingface_hub import snapshot_download
+# snapshot_download(
+#     repo_id='meta-llama/Meta-Llama-3.1-8B-Instruct',
+#     local_dir='models/Meta-Llama-3.1-8B-Instruct',
+#     token='${HF_TOKEN}'
+# )
+# "
 unset HF_TOKEN
 
 DOCKER_IMAGE="mhmdhisham/pytorch-2.8.0-cuda12.9-cudnn9-devel-ncu:testing"
@@ -42,6 +50,13 @@ mkdir -p benchmark_results
 nvidia-smi -pm 1                       # enable persistence mode, stop gpu from powering down when idle
 nvidia-smi --auto-boost-default=0      # disable auto boost aka automatic frequency scaling mechanism
 
+# lock gpu clocks max values
+MAX_GRAPHICS=$(nvidia-smi --query-gpu=clocks.max.graphics --format=csv,noheader,nounits | tr -d ' ')
+MAX_MEMORY=$(nvidia-smi --query-gpu=clocks.max.memory --format=csv,noheader,nounits | tr -d ' ')
+echo "Locking graphics clock to ${MAX_GRAPHICS} MHz and memory clock to ${MAX_MEMORY} MHz"
+nvidia-smi -lgc ${MAX_GRAPHICS},${MAX_GRAPHICS}
+nvidia-smi -lmc ${MAX_MEMORY},${MAX_MEMORY}
+
 run_benchmark_in_container() {
     local repo_url="$1"
     local branch="$2"
@@ -55,6 +70,7 @@ run_benchmark_in_container() {
         -v "$(pwd)/stress_test.py:/workspace/stress_test.py" \
         -v "$(pwd)/normal_config.json:/workspace/normal_config.json" \
         -v "$(pwd)/ncu_config.json:/workspace/ncu_config.json" \
+        -v "$(pwd)/inference_benchmark.py:/workspace/inference_benchmark.py" \
         -v "$(pwd)/benchmark_container.sh:/workspace/benchmark_container.sh" \
         "$docker_image" \
         bash /workspace/benchmark_container.sh "$repo_url" "$branch"

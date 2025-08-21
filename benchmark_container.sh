@@ -18,6 +18,18 @@ git clone "$REPO_URL" bitsandbytes
 cd bitsandbytes
 git checkout "$BRANCH"
 
+# improve reproducibility
+# https://docs.nvidia.com/cuda/cublas/index.html#results-reproducibility
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+# https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
+export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+
+# move test files
+cp /workspace/stress_test.py .
+cp /workspace/normal_config.json .
+cp /workspace/ncu_config.json .
+cp /workspace/inference_benchmark.py ./benchmarking/inference_benchmark.py
+
 # build for cuda and install
 # get compute capability pytorch to avoid compiling for a different compute capability
 # capability=$(python -c "import torch; print('{}.{}'.format(*torch.cuda.get_device_capability()))")
@@ -31,20 +43,21 @@ python -m pip install -e .
 # run official bnb benchmark
 python ./benchmarking/inference_benchmark.py \
     "/workspace/models/Meta-Llama-3.1-8B-Instruct" \
-    --configs int8 nf4 nf4-dq \
+    --configs int8 nf4 \
+    --batches 32 \
     --out-dir "${OUTPUT_DIR}/Llama-3.1-8B-Instruct"
 
 # profile the stress test with ncu
 # only benchmark kQuantizeBlockwise and kDequantizeBlockwise kernels
-ncu -f \
-    --set full \
-    --target-processes all \
-    --kernel-name "regex:k(Quantize|Dequantize)Blockwise" \
-    --export "${OUTPUT_DIR}/${BRANCH}.ncu-rep" \
-    python stress_test.py ncu_config.json "${OUTPUT_DIR}/stress_test_ncu_run.csv" "${OUTPUT_DIR}/stress_test_ncu_metadata.csv"
+# ncu -f \
+#     --set full \
+#     --target-processes all \
+#     --kernel-name "regex:k(Quantize|Dequantize)Blockwise" \
+#     --export "${OUTPUT_DIR}/${BRANCH}.ncu-rep" \
+#     python stress_test.py ncu_config.json "${OUTPUT_DIR}/stress_test_ncu_run.csv" "${OUTPUT_DIR}/stress_test_ncu_metadata.csv"
 
-# export ncu report as csv
-ncu --import "${OUTPUT_DIR}/${BRANCH}.ncu-rep" --csv --page raw > "${OUTPUT_DIR}/ncu_rep.csv"
+# # export ncu report as csv
+# ncu --import "${OUTPUT_DIR}/${BRANCH}.ncu-rep" --csv --page raw > "${OUTPUT_DIR}/ncu_rep.csv"
 
-# benchmark with my custom stress test
-python stress_test.py normal_config.json "${OUTPUT_DIR}/stress_test_run.csv" "${OUTPUT_DIR}/stress_test_metadata.csv"
+# # benchmark with my custom stress test
+# python stress_test.py normal_config.json "${OUTPUT_DIR}/stress_test_run.csv" "${OUTPUT_DIR}/stress_test_metadata.csv"
