@@ -21,8 +21,12 @@ options:
     --batches BATCHES [BATCHES ...]
     --input-length INPUT_LENGTH
     --out-dir OUT_DIR
+    --seed SEED
 """
-
+import gc
+import random
+import os
+import numpy as np
 import argparse
 from pathlib import Path
 
@@ -31,6 +35,33 @@ from optimum_benchmark.logging_utils import setup_logging
 import torch
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
+
+def clear_memory(device=0):
+    # get cache size from device
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        cache_size = torch.cuda.get_device_properties(device).L2_cache_size
+        dummy_data = torch.empty(cache_size, dtype=torch.int8, device=f"cuda:{device}")
+        dummy_data.zero_()
+        torch.cuda.synchronize()
+        del dummy_data
+    gc.collect()
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    os.environ['TRANSFORMERS_SEED'] = str(seed)
+    
+    # deterministic settings
+    torch.backends.cudnn.enabled = True
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+    os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+    
 
 BFLOAT16_SUPPORT = torch.cuda.get_device_capability()[0] >= 8
 
@@ -99,6 +130,7 @@ if __name__ == "__main__":
     parser.add_argument("--input-length", type=int, default=64)
 
     parser.add_argument("--out-dir", type=str, default="reports")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
 
     args = parser.parse_args()
 
@@ -108,7 +140,9 @@ if __name__ == "__main__":
     for batch_size in args.batches:
         print(f"Benchmarking batch size: {batch_size}")
         for config in args.configs:
-            launcher_config = ProcessConfig(device_isolation=True, start_method="spawn")
+            set_seed(args.seed)
+            clear_memory()
+            launcher_config = ProcessConfig(device_isolation=True, device_isolation_action="kill", start_method="spawn")
             scenario_config = InferenceConfig(
                 latency=True,
                 memory=True,

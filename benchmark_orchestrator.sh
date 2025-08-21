@@ -50,12 +50,22 @@ mkdir -p benchmark_results
 nvidia-smi -pm 1                       # enable persistence mode, stop gpu from powering down when idle
 nvidia-smi --auto-boost-default=0      # disable auto boost aka automatic frequency scaling mechanism
 
-# lock gpu clocks max values
+# lock gpu clocks and power max values
 MAX_GRAPHICS=$(nvidia-smi --query-gpu=clocks.max.graphics --format=csv,noheader,nounits | tr -d ' ')
 MAX_MEMORY=$(nvidia-smi --query-gpu=clocks.max.memory --format=csv,noheader,nounits | tr -d ' ')
+MAX_POWER=$(nvidia-smi --query-gpu=power.max_limit --format=csv,noheader,nounits | tr -d ' ')
 echo "Locking graphics clock to ${MAX_GRAPHICS} MHz and memory clock to ${MAX_MEMORY} MHz"
 nvidia-smi -lgc ${MAX_GRAPHICS},${MAX_GRAPHICS}
 nvidia-smi -lmc ${MAX_MEMORY},${MAX_MEMORY}
+echo "Setting power limit to ${MAX_POWER}W"
+nvidia-smi -pl ${MAX_POWER}
+
+
+# disable cpu frequency scaling if possible
+if command -v cpupower &> /dev/null; then
+    echo "Setting CPU governor to performance mode..."
+    sudo cpupower frequency-set -g performance 2>/dev/null || echo "Warning: Could not set CPU governor"
+fi
 
 run_benchmark_in_container() {
     local repo_url="$1"
@@ -63,8 +73,17 @@ run_benchmark_in_container() {
     local docker_image="$3"
 
     echo ">>> Running benchmark: ($branch from $repo_url)"
-
+    
+    # clear GPU memory and reset state before each benchmark
+    echo "Clearing GPU memory..."
+    nvidia-smi --gpu-reset || echo "GPU reset not supported, continuing..."
+    sleep 5
+    
     docker run --user root --rm --gpus all \
+        --cpus="8" \
+        --memory="32g" \
+        --memory-swap="32g" \
+        --shm-size="32g" \
         -v "$(pwd)/models:/workspace/models:ro" \
         -v "$(pwd)/benchmark_results:/workspace/benchmark_results" \
         -v "$(pwd)/stress_test.py:/workspace/stress_test.py" \
@@ -74,6 +93,8 @@ run_benchmark_in_container() {
         -v "$(pwd)/benchmark_container.sh:/workspace/benchmark_container.sh" \
         "$docker_image" \
         bash /workspace/benchmark_container.sh "$repo_url" "$branch"
+
+    sleep 10
 }
 
 # benchmark the baseline repo in the container
@@ -84,11 +105,10 @@ for BRANCH in "${FORK_BRANCHES[@]}"; do
     run_benchmark_in_container $FORK_URL $BRANCH $DOCKER_IMAGE
 done
 
-nvcc --version > benchmark_results/nvcc.txt
 nvidia-smi > benchmark_results/nvidia-smi.txt
 
 # install zip in case it is not installed
 sudo apt update && sudo apt install zip
 
 # zip the results to download with scp
-zip -r h100_nebius_benchmark_results.zip benchmark_results
+zip -r "$1" benchmark_results
