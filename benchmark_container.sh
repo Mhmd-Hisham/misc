@@ -33,8 +33,8 @@ cp /workspace/inference_benchmark.py .
 # build for cuda and install
 # get compute capability pytorch to avoid compiling for a different compute capability
 # capability=$(python -c "import torch; print('{}.{}'.format(*torch.cuda.get_device_capability()))")
-# set fixed compute capability
-capability=90
+# set fixed compute capability for RTX 4090
+capability=89
 rm -rf build_cuda
 cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=$capability .
 cmake --build build_cuda --config Release
