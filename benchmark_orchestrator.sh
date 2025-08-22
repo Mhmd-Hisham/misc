@@ -4,28 +4,33 @@
 set -e 
 
 # download the model at the start
-read -rsp "Enter your Hugging Face token: " HF_TOKEN
-echo
+MODEL_DIR="models/Llama-3.2-1B"
+if [ -d "$MODEL_DIR" ]; then
+    echo "Model already exists at $MODEL_DIR"
+else
+    read -rsp "Enter your Hugging Face token: " HF_TOKEN
+    echo
 
-mkdir -p models
+    mkdir -p models
 
-python3 -c "
+    python3 -c "
 from huggingface_hub import snapshot_download
 snapshot_download(
-    repo_id='meta-llama/Llama-3.2-1B',
-    local_dir='models/Llama-3.2-1B',
-    token='${HF_TOKEN}'
+        repo_id='meta-llama/Llama-3.2-1B',
+        local_dir='models/Llama-3.2-1B',
+        token='${HF_TOKEN}'
 )
 "
-# python3 -c "
-# from huggingface_hub import snapshot_download
-# snapshot_download(
-#     repo_id='meta-llama/Meta-Llama-3.1-8B-Instruct',
-#     local_dir='models/Meta-Llama-3.1-8B-Instruct',
-#     token='${HF_TOKEN}'
-# )
-# "
-unset HF_TOKEN
+    # python3 -c "
+    # from huggingface_hub import snapshot_download
+    # snapshot_download(
+    #     repo_id='meta-llama/Meta-Llama-3.1-8B-Instruct',
+    #     local_dir='models/Meta-Llama-3.1-8B-Instruct',
+    #     token='${HF_TOKEN}'
+    # )
+    # "
+    unset HF_TOKEN
+fi
 
 DOCKER_IMAGE="mhmdhisham/pytorch-2.8.0-cuda12.9-cudnn9-devel-ncu:testing"
 FORK_URL="https://github.com/Mhmd-Hisham/bitsandbytes.git"
@@ -44,6 +49,7 @@ FORK_BRANCHES=(
     "cuda-branchless-quantization-float32-lut-bitwise"
     "cuda-branchless-quantization-float16-lut-bitwise"
     "cuda-branchless-dequantization-float32-lut"
+    "cuda-branchless-quantization-float16-lut-bitwise-dequantization-float32-lut"
 )
 
 mkdir -p benchmark_results
@@ -106,9 +112,6 @@ for BRANCH in "${FORK_BRANCHES[@]}"; do
 done
 
 nvidia-smi > benchmark_results/nvidia-smi.txt
-
-# install zip in case it is not installed
-sudo apt update && sudo apt install zip
 
 # zip the results to download with scp
 zip -r "$1" benchmark_results
