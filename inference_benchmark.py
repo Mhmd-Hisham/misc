@@ -22,6 +22,8 @@ options:
     --input-length INPUT_LENGTH
     --out-dir OUT_DIR
     --seed SEED
+    --iterations ITERATIONS
+    --warmup-runs WARMUP_RUNS
 """
 import gc
 import random
@@ -132,6 +134,9 @@ if __name__ == "__main__":
     parser.add_argument("--out-dir", type=str, default="reports")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
 
+    parser.add_argument("--iterations", type=int, default=500, help="Number of iterations for each benchmark run")
+    parser.add_argument("--warmup-runs", type=int, default=10, help="Number of warmup runs to discard before measurement")
+
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -147,6 +152,9 @@ if __name__ == "__main__":
                 latency=True,
                 memory=True,
                 input_shapes={"batch_size": batch_size, "sequence_length": args.input_length},
+                iterations=args.iterations,
+                warmup_runs=args.warmup_runs,
+                duration=0,
             )
             backend_config = PyTorchConfig(
                 device="cuda",
