@@ -42,15 +42,15 @@ docker pull $DOCKER_IMAGE
 
 # branch list to benchmark
 FORK_BRANCHES=(
-    "cuda-branchless-quantization-float32"
-    "cuda-branchless-quantization-float16"
-    "cuda-branchless-quantization-float32-lut"
-    "cuda-branchless-quantization-float16-lut"
-    "cuda-branchless-quantization-float32-lut-bitwise"
-    "cuda-branchless-quantization-float16-lut-bitwise"
     "cuda-branchless-dequantization-float32-lut"
+    "cuda-branchless-quantization-float16-lut-bitwise"
     "cuda-branchless-quantization-float16-lut-bitwise-dequantization-float32-lut"
 )
+    # "cuda-branchless-quantization-float32"
+    # "cuda-branchless-quantization-float16"
+    # "cuda-branchless-quantization-float32-lut"
+    # "cuda-branchless-quantization-float16-lut"
+    # "cuda-branchless-quantization-float32-lut-bitwise"
 
 mkdir -p benchmark_results
 nvidia-smi -pm 1                       # enable persistence mode, stop gpu from powering down when idle
@@ -97,6 +97,7 @@ run_benchmark_in_container() {
         -v "$(pwd)/ncu_config.json:/workspace/ncu_config.json" \
         -v "$(pwd)/inference_benchmark.py:/workspace/inference_benchmark.py" \
         -v "$(pwd)/benchmark_container.sh:/workspace/benchmark_container.sh" \
+        -v "$(pwd)/functional.py:/workspace/functional.py" \
         "$docker_image" \
         bash /workspace/benchmark_container.sh "$repo_url" "$branch"
 

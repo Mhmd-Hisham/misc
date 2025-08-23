@@ -29,6 +29,7 @@ cp /workspace/stress_test.py .
 cp /workspace/normal_config.json .
 cp /workspace/ncu_config.json .
 cp /workspace/inference_benchmark.py .
+cp /workspace/functional.py ./bitsandbytes/functional.py # override functional.py to force set the blocksize 
 
 # build for cuda and install
 # get compute capability pytorch to avoid compiling for a different compute capability
@@ -47,6 +48,8 @@ python ./benchmarking/inference_benchmark.py \
     --configs int8 nf4 \
     --batches 1 \
     --input-length 1024 \
+    --iterations 250 \
+    --blocksize 4096
     --out-dir "${OUTPUT_DIR}/Llama-3.2-1B"
 
 # profile the stress test with ncu

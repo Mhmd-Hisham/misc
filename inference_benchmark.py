@@ -24,6 +24,7 @@ options:
     --seed SEED
     --iterations ITERATIONS
     --warmup-runs WARMUP_RUNS
+    --nf4-blocksize NF4_QUANTIZATION_BLOCKSIZE
 """
 import gc
 import random
@@ -31,6 +32,11 @@ import os
 import numpy as np
 import argparse
 from pathlib import Path
+
+# disable "per_token" logs from pytorch backend, its slow with large number of tokens
+from optimum_benchmark.scenarios.inference.scenario import PER_TOKEN_BACKENDS
+if "pytorch" in PER_TOKEN_BACKENDS:
+    PER_TOKEN_BACKENDS.remove("pytorch") 
 
 from optimum_benchmark import Benchmark, BenchmarkConfig, InferenceConfig, ProcessConfig, PyTorchConfig
 from optimum_benchmark.logging_utils import setup_logging
@@ -78,6 +84,7 @@ WEIGHTS_CONFIGS = {
             "bnb_4bit_quant_type": "nf4",
             "bnb_4bit_use_double_quant": False,
             "bnb_4bit_compute_dtype": torch.bfloat16 if BFLOAT16_SUPPORT else "float16",
+            # "quantization_blocksize": 4096
         },
     },
     "nf4-dq": {
@@ -88,6 +95,7 @@ WEIGHTS_CONFIGS = {
             "bnb_4bit_quant_type": "nf4",
             "bnb_4bit_use_double_quant": True,
             "bnb_4bit_compute_dtype": torch.bfloat16 if BFLOAT16_SUPPORT else "float16",
+            # "quantization_blocksize": 4096
         },
     },
     "int8-decomp": {
@@ -136,6 +144,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--iterations", type=int, default=500, help="Number of iterations for each benchmark run")
     parser.add_argument("--warmup-runs", type=int, default=10, help="Number of warmup runs to discard before measurement")
+    # parser.add_argument("--nf4-blocksize", type=int, default=4096, help="NF4 quantization block size")
 
     args = parser.parse_args()
 
