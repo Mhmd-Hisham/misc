@@ -24,7 +24,7 @@ options:
     --seed SEED
     --iterations ITERATIONS
     --warmup-runs WARMUP_RUNS
-    --nf4-blocksize NF4_QUANTIZATION_BLOCKSIZE
+    --nf4-blocksize [NF4_QUANTIZATION_BLOCKSIZE ..]
 """
 import gc
 import random
@@ -84,7 +84,6 @@ WEIGHTS_CONFIGS = {
             "bnb_4bit_quant_type": "nf4",
             "bnb_4bit_use_double_quant": False,
             "bnb_4bit_compute_dtype": torch.bfloat16 if BFLOAT16_SUPPORT else "float16",
-            # "quantization_blocksize": 4096
         },
     },
     "nf4-dq": {
@@ -95,7 +94,6 @@ WEIGHTS_CONFIGS = {
             "bnb_4bit_quant_type": "nf4",
             "bnb_4bit_use_double_quant": True,
             "bnb_4bit_compute_dtype": torch.bfloat16 if BFLOAT16_SUPPORT else "float16",
-            # "quantization_blocksize": 4096
         },
     },
     "int8-decomp": {
@@ -115,6 +113,43 @@ WEIGHTS_CONFIGS = {
         },
     },
 }
+
+def run_benchmark(args, config, batch_size, nf4_blocksize=None):
+    print(f"[config={config}, batch_size={batch_size}, nf4_blocksize={nf4_blocksize}]")
+    set_seed(args.seed)
+    clear_memory()
+
+    if nf4_blocksize:
+        os.environ["BNB_BLOCKSIZE"] = str(nf4_blocksize)
+
+    launcher_config = ProcessConfig(device_isolation=True, device_isolation_action="kill", start_method="spawn")
+    scenario_config = InferenceConfig(
+        latency=True,
+        memory=False,
+        input_shapes={"batch_size": batch_size, "sequence_length": args.input_length},
+        iterations=args.iterations,
+        warmup_runs=args.warmup_runs,
+        duration=0,
+    )
+    backend_config = PyTorchConfig(
+        device="cuda",
+        device_ids="0",
+        device_map="auto",
+        no_weights=False,
+        model=args.model_id,
+        **WEIGHTS_CONFIGS[config],
+    )
+    benchmark_config = BenchmarkConfig(
+        name=f"benchmark-{config}-bsz{batch_size}",
+        scenario=scenario_config,
+        launcher=launcher_config,
+        backend=backend_config,
+    )
+
+    out_path = out_dir / f"benchmark_{config}_bsz{batch_size}.json"
+
+    benchmark_report = Benchmark.launch(benchmark_config)
+    benchmark_report.save_json(out_path)
 
 if __name__ == "__main__":
     setup_logging(level="INFO")
@@ -142,9 +177,9 @@ if __name__ == "__main__":
     parser.add_argument("--out-dir", type=str, default="reports")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
 
-    parser.add_argument("--iterations", type=int, default=500, help="Number of iterations for each benchmark run")
+    parser.add_argument("--iterations", type=int, default=100, help="Number of iterations for each benchmark run")
     parser.add_argument("--warmup-runs", type=int, default=10, help="Number of warmup runs to discard before measurement")
-    # parser.add_argument("--nf4-blocksize", type=int, default=4096, help="NF4 quantization block size")
+    parser.add_argument("--nf4-blocksize", nargs="+", type=int, default=[64, 128, 256, 512, 1024, 2048], help="NF4 quantization block size")
 
     args = parser.parse_args()
 
@@ -154,34 +189,8 @@ if __name__ == "__main__":
     for batch_size in args.batches:
         print(f"Benchmarking batch size: {batch_size}")
         for config in args.configs:
-            set_seed(args.seed)
-            clear_memory()
-            launcher_config = ProcessConfig(device_isolation=True, device_isolation_action="kill", start_method="spawn")
-            scenario_config = InferenceConfig(
-                latency=True,
-                memory=True,
-                input_shapes={"batch_size": batch_size, "sequence_length": args.input_length},
-                iterations=args.iterations,
-                warmup_runs=args.warmup_runs,
-                duration=0,
-            )
-            backend_config = PyTorchConfig(
-                device="cuda",
-                device_ids="0",
-                device_map="auto",
-                no_weights=False,
-                model=args.model_id,
-                **WEIGHTS_CONFIGS[config],
-            )
-            benchmark_config = BenchmarkConfig(
-                name=f"benchmark-{config}-bsz{batch_size}",
-                scenario=scenario_config,
-                launcher=launcher_config,
-                backend=backend_config,
-            )
-
-            out_path = out_dir / f"benchmark_{config}_bsz{batch_size}.json"
-
-            benchmark_report = Benchmark.launch(benchmark_config)
-            benchmark_report.log()
-            benchmark_report.save_json(out_path)
+            if "nf4" in config:
+                for blocksize in args.nf4_blocksize:
+                    run_benchmark(args, config, batch_size, nf4_blocksize=blocksize)
+            else:
+                run_benchmark(args, config, batch_size)

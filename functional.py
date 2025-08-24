@@ -7,6 +7,7 @@ import ctypes as ct
 import itertools
 from math import prod
 from typing import Any, Optional, Union
+import os
 
 import numpy as np
 import torch
@@ -880,8 +881,8 @@ def quantize_4bit(
 
     if blocksize is None:
         blocksize = 64 if not HIP_ENVIRONMENT else 128
-    blocksize=4096
-    print("[quantize_4bit] Blocksize set to:", blocksize)
+    blocksize = int(os.getenv("BNB_BLOCKSIZE", "64"))
+    #print("[quantize_4bit] Blocksize set to:", blocksize)
     input_shape = A.shape
 
     _out, _absmax = torch.ops.bitsandbytes.quantize_4bit.default(
@@ -988,8 +989,8 @@ def dequantize_4bit(
 
     if blocksize is None:
         blocksize = 64 if not HIP_ENVIRONMENT else 128
-    blocksize=4096
-    print("[dequantize_4bit] Blocksize set to:", blocksize)
+    blocksize = int(os.getenv("BNB_BLOCKSIZE", "64"))
+    #print("[dequantize_4bit] Blocksize set to:", blocksize)
     if quant_state is None:
         assert absmax is not None and out is not None
 

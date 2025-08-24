@@ -46,10 +46,11 @@ cp -f ../inference_benchmark.py ./benchmarking/inference_benchmark.py
 python ./benchmarking/inference_benchmark.py \
     "/workspace/models/Llama-3.2-1B" \
     --configs int8 nf4 \
-    --batches 1 \
-    --input-length 1024 \
-    --iterations 250 \
-    --blocksize 4096
+    --batches 1 32 \
+    --blocksize 64 128 256 512 1024 2046 \
+    --input-length 64 \
+    --iterations 100 \
+#    --blocksize 4096
     --out-dir "${OUTPUT_DIR}/Llama-3.2-1B"
 
 # profile the stress test with ncu

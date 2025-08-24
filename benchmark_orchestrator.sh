@@ -43,9 +43,9 @@ docker pull $DOCKER_IMAGE
 # branch list to benchmark
 FORK_BRANCHES=(
     "cuda-branchless-dequantization-float32-lut"
-    "cuda-branchless-quantization-float16-lut-bitwise"
-    "cuda-branchless-quantization-float16-lut-bitwise-dequantization-float32-lut"
 )
+    # "cuda-branchless-quantization-float16-lut-bitwise"
+    # "cuda-branchless-quantization-float16-lut-bitwise-dequantization-float32-lut"
     # "cuda-branchless-quantization-float32"
     # "cuda-branchless-quantization-float16"
     # "cuda-branchless-quantization-float32-lut"
