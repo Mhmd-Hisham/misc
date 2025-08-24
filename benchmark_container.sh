@@ -9,6 +9,7 @@ set -e
 # get repo url and branch name
 REPO_URL=$1
 BRANCH=$2
+MODEL_NAME=$3
 
 OUTPUT_DIR="/workspace/benchmark_results/${BRANCH}_results"
 
@@ -44,13 +45,14 @@ python -m pip install -e .
 # run official bnb benchmark
 cp -f ../inference_benchmark.py ./benchmarking/inference_benchmark.py
 python ./benchmarking/inference_benchmark.py \
-    "/workspace/models/Llama-3.2-1B" \
+    "/workspace/models/${MODEL_NAME}" \
     --configs int8 nf4 \
-    --batches 1 \
-    --nf4-blocksize 64 128 256 512 1024 2048 \
-    --input-length 64 \
+    --batches 32 \
+    --nf4-blocksize 64 \
+    --input-length 4096 \
     --iterations 100 \
-    --out-dir "${OUTPUT_DIR}/Llama-3.2-1B"
+    --warmup-runs 10 \
+    --out-dir "${OUTPUT_DIR}/${MODEL_NAME}"
 
 # profile the stress test with ncu
 # only benchmark kQuantizeBlockwise and kDequantizeBlockwise kernels

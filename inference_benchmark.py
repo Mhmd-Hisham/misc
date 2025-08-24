@@ -19,12 +19,12 @@ options:
     --int8
     --int8-decomp
     --batches BATCHES [BATCHES ...]
-    --input-length INPUT_LENGTH
+    --input-length [INPUT_LENGTH ...]
     --out-dir OUT_DIR
     --seed SEED
     --iterations ITERATIONS
     --warmup-runs WARMUP_RUNS
-    --nf4-blocksize [NF4_QUANTIZATION_BLOCKSIZE ..]
+    --nf4-blocksize [NF4_QUANTIZATION_BLOCKSIZE ...]
 """
 import gc
 import random
@@ -114,8 +114,8 @@ WEIGHTS_CONFIGS = {
     },
 }
 
-def run_benchmark(args, config, batch_size, nf4_blocksize=None):
-    print(f"[config={config}, batch_size={batch_size}, nf4_blocksize={nf4_blocksize}]")
+def run_benchmark(args, config, batch_size, input_length, nf4_blocksize=None):
+    print(f"[config={config}, batch_size={batch_size}, input_length={input_length}, nf4_blocksize={nf4_blocksize}]")
     set_seed(args.seed)
     clear_memory()
 
@@ -126,7 +126,7 @@ def run_benchmark(args, config, batch_size, nf4_blocksize=None):
     scenario_config = InferenceConfig(
         latency=True,
         memory=False,
-        input_shapes={"batch_size": batch_size, "sequence_length": args.input_length},
+        input_shapes={"batch_size": batch_size, "sequence_length": input_length},
         iterations=args.iterations,
         warmup_runs=args.warmup_runs,
         duration=0,
@@ -146,9 +146,9 @@ def run_benchmark(args, config, batch_size, nf4_blocksize=None):
         backend=backend_config,
     )
 
-    out_path = out_dir / f"benchmark_{config}_bsz{batch_size}.json"
+    out_path = out_dir / f"benchmark_{config}_bsz{batch_size}_il{input_length}.json"
     if nf4_blocksize != None:
-        out_path = out_dir / f"benchmark_{config}_bsz{batch_size}_block{nf4_blocksize}.json"
+        out_path = out_dir / f"benchmark_{config}_bsz{batch_size}_il{input_length}_block{nf4_blocksize}.json"
 
     benchmark_report = Benchmark.launch(benchmark_config)
     benchmark_report.save_json(out_path)
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     parser.add_argument("--int8-decomp", dest="configs", action="append_const", const="int8-decomp")
 
     parser.add_argument("--batches", nargs="+", type=int, default=[1, 8, 16, 32])
-    parser.add_argument("--input-length", type=int, default=64)
+    parser.add_argument("--input-length", nargs="+", type=int, default=[64])
 
     parser.add_argument("--out-dir", type=str, default="reports")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
@@ -188,11 +188,12 @@ if __name__ == "__main__":
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    for batch_size in args.batches:
-        print(f"Benchmarking batch size: {batch_size}")
-        for config in args.configs:
-            if "nf4" in config:
-                for blocksize in args.nf4_blocksize:
-                    run_benchmark(args, config, batch_size, nf4_blocksize=blocksize)
-            else:
-                run_benchmark(args, config, batch_size)
+    for input_length in args.input_length:
+        for batch_size in args.batches:
+            print(f"Benchmarking batch size: {batch_size}")
+            for config in args.configs:
+                if "nf4" in config:
+                    for blocksize in args.nf4_blocksize:
+                        run_benchmark(args, config, batch_size, input_length, nf4_blocksize=blocksize)
+                else:
+                    run_benchmark(args, config, batch_size, input_length)

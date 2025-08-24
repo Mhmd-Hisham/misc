@@ -4,7 +4,8 @@
 set -e 
 
 # download the model at the start
-MODEL_DIR="models/Llama-3.2-1B"
+MODEL_NAME="Meta-Llama-3.1-8B-Instruct"
+MODEL_DIR="models/${MODEL_NAME}"
 if [ -d "$MODEL_DIR" ]; then
     echo "Model already exists at $MODEL_DIR"
 else
@@ -13,22 +14,22 @@ else
 
     mkdir -p models
 
+#     python3 -c "
+# from huggingface_hub import snapshot_download
+# snapshot_download(
+#         repo_id='meta-llama/Llama-3.2-1B',
+#         local_dir='models/Llama-3.2-1B',
+#         token='${HF_TOKEN}'
+# )
+# "
     python3 -c "
 from huggingface_hub import snapshot_download
 snapshot_download(
-        repo_id='meta-llama/Llama-3.2-1B',
-        local_dir='models/Llama-3.2-1B',
-        token='${HF_TOKEN}'
+    repo_id='meta-llama/${MODEL_NAME}',
+    local_dir='${MODEL_DIR}',
+    token='${HF_TOKEN}'
 )
 "
-    # python3 -c "
-    # from huggingface_hub import snapshot_download
-    # snapshot_download(
-    #     repo_id='meta-llama/Meta-Llama-3.1-8B-Instruct',
-    #     local_dir='models/Meta-Llama-3.1-8B-Instruct',
-    #     token='${HF_TOKEN}'
-    # )
-    # "
     unset HF_TOKEN
 fi
 
@@ -42,9 +43,9 @@ docker pull $DOCKER_IMAGE
 
 # branch list to benchmark
 FORK_BRANCHES=(
-    "cuda-slow-dequantization"
     "cuda-branchless-dequantization-float32-lut"
 )
+    # "cuda-slow-dequantization"
     # "cuda-branchless-quantization-float16-lut-bitwise"
     # "cuda-branchless-quantization-float16-lut-bitwise-dequantization-float32-lut"
     # "cuda-branchless-quantization-float32"
@@ -78,6 +79,7 @@ run_benchmark_in_container() {
     local repo_url="$1"
     local branch="$2"
     local docker_image="$3"
+    local model_name="$4"
 
     echo ">>> Running benchmark: ($branch from $repo_url)"
     
@@ -100,17 +102,17 @@ run_benchmark_in_container() {
         -v "$(pwd)/benchmark_container.sh:/workspace/benchmark_container.sh" \
         -v "$(pwd)/functional.py:/workspace/functional.py" \
         "$docker_image" \
-        bash /workspace/benchmark_container.sh "$repo_url" "$branch"
+        bash /workspace/benchmark_container.sh "$repo_url" "$branch" "$model_name"
 
     sleep 10
 }
 
 # benchmark the baseline repo in the container
-run_benchmark_in_container $BASELINE_URL $BASELINE_BRANCH $DOCKER_IMAGE
+run_benchmark_in_container $BASELINE_URL $BASELINE_BRANCH $DOCKER_IMAGE $MODEL_NAME
 
 # loop through each path
 for BRANCH in "${FORK_BRANCHES[@]}"; do
-    run_benchmark_in_container $FORK_URL $BRANCH $DOCKER_IMAGE
+    run_benchmark_in_container $FORK_URL $BRANCH $DOCKER_IMAGE $MODEL_NAME
 done
 
 nvidia-smi > benchmark_results/nvidia-smi.txt
