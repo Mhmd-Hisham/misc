@@ -47,7 +47,7 @@ python ./benchmarking/inference_benchmark.py \
     "/workspace/models/Llama-3.2-1B" \
     --configs int8 nf4 \
     --batches 1 \
-    --nf4-blocksize 64 128 256 512 1024 2046 \
+    --nf4-blocksize 64 128 256 512 1024 2048 \
     --input-length 64 \
     --iterations 100 \
     --out-dir "${OUTPUT_DIR}/Llama-3.2-1B"
