@@ -46,8 +46,8 @@ python -m pip install -e .
 cp -f ../inference_benchmark.py ./benchmarking/inference_benchmark.py
 python ./benchmarking/inference_benchmark.py \
     "/workspace/models/${MODEL_NAME}" \
-    --configs int8 nf4 \
-    --batches 32 \
+    --configs nf4-dq nf4 \
+    --batches 1 \
     --nf4-blocksize 64 \
     --input-length 4096 \
     --iterations 100 \

@@ -4,7 +4,9 @@
 set -e 
 
 # download the model at the start
-MODEL_NAME="Meta-Llama-3.1-8B-Instruct"
+MODEL_NAME="Llama-3.2-1B"               # 1B Model
+MODEL_NAME="Meta-Llama-3.1-8B-Instruct" # 8B Model
+MODEL_NAME="Llama-3.1-70B"              # 70B Model
 MODEL_DIR="models/${MODEL_NAME}"
 if [ -d "$MODEL_DIR" ]; then
     echo "Model already exists at $MODEL_DIR"
@@ -14,14 +16,6 @@ else
 
     mkdir -p models
 
-#     python3 -c "
-# from huggingface_hub import snapshot_download
-# snapshot_download(
-#         repo_id='meta-llama/Llama-3.2-1B',
-#         local_dir='models/Llama-3.2-1B',
-#         token='${HF_TOKEN}'
-# )
-# "
     python3 -c "
 from huggingface_hub import snapshot_download
 snapshot_download(
