@@ -33,10 +33,8 @@ cp /workspace/inference_benchmark.py .
 cp /workspace/functional.py ./bitsandbytes/functional.py # override functional.py to force set the blocksize 
 
 # build for cuda and install
-# get compute capability pytorch to avoid compiling for a different compute capability
-# capability=$(python -c "import torch; print('{}.{}'.format(*torch.cuda.get_device_capability()))")
-# set fixed compute capability for RTX 4090
-capability=89
+# set fixed compute capability H100 80GB SXM
+capability=9.0
 rm -rf build_cuda
 cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=$capability .
 cmake --build build_cuda --config Release
@@ -46,10 +44,11 @@ python -m pip install -e .
 cp -f ../inference_benchmark.py ./benchmarking/inference_benchmark.py
 python ./benchmarking/inference_benchmark.py \
     "/workspace/models/${MODEL_NAME}" \
-    --configs nf4-dq nf4 \
-    --batches 1 \
+    --configs nf4 \
+    --batches 1\
     --nf4-blocksize 64 \
     --input-length 4096 \
+    --output-length 4096 \
     --iterations 100 \
     --warmup-runs 10 \
     --out-dir "${OUTPUT_DIR}/${MODEL_NAME}"

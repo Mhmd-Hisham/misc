@@ -25,6 +25,7 @@ options:
     --iterations ITERATIONS
     --warmup-runs WARMUP_RUNS
     --nf4-blocksize [NF4_QUANTIZATION_BLOCKSIZE ...]
+    --output-length OUTPUT_LENGTH
 """
 import gc
 import random
@@ -32,11 +33,6 @@ import os
 import numpy as np
 import argparse
 from pathlib import Path
-
-# disable "per_token" logs from pytorch backend, its slow with large number of tokens
-from optimum_benchmark.scenarios.inference.scenario import PER_TOKEN_BACKENDS
-if "pytorch" in PER_TOKEN_BACKENDS:
-    PER_TOKEN_BACKENDS.remove("pytorch") 
 
 from optimum_benchmark import Benchmark, BenchmarkConfig, InferenceConfig, ProcessConfig, PyTorchConfig
 from optimum_benchmark.logging_utils import setup_logging
@@ -70,7 +66,6 @@ def set_seed(seed=42):
     torch.backends.cudnn.deterministic = True
     os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
     
-
 BFLOAT16_SUPPORT = torch.cuda.get_device_capability()[0] >= 8
 
 WEIGHTS_CONFIGS = {
@@ -115,7 +110,6 @@ WEIGHTS_CONFIGS = {
 }
 
 def run_benchmark(args, config, batch_size, input_length, nf4_blocksize=None):
-    print(f"[config={config}, batch_size={batch_size}, input_length={input_length}, nf4_blocksize={nf4_blocksize}]")
     set_seed(args.seed)
     clear_memory()
 
@@ -130,6 +124,9 @@ def run_benchmark(args, config, batch_size, input_length, nf4_blocksize=None):
         iterations=args.iterations,
         warmup_runs=args.warmup_runs,
         duration=0,
+        # for consistent results, set a fixed min and max for output tokens
+        generate_kwargs={"min_new_tokens": args.output_length, "max_new_tokens": args.output_length},
+        forward_kwargs={"min_new_tokens": args.output_length, "max_new_tokens": args.output_length}
     )
     backend_config = PyTorchConfig(
         device="cuda",
@@ -139,23 +136,24 @@ def run_benchmark(args, config, batch_size, input_length, nf4_blocksize=None):
         model=args.model_id,
         **WEIGHTS_CONFIGS[config],
     )
+
+    test_name = f"benchmark-{config}-bsz{batch_size}-isz{input_length}-osz{args.output_length}-iter{args.iterations}-wrmup-{args.warmup_runs}"
+    if nf4_blocksize != None:
+        test_name += f"-blksz{nf4_blocksize}"
+
     benchmark_config = BenchmarkConfig(
-        name=f"benchmark-{config}-bsz{batch_size}",
+        name=test_name,
         scenario=scenario_config,
         launcher=launcher_config,
         backend=backend_config,
     )
-
-    out_path = out_dir / f"benchmark_{config}_bsz{batch_size}_il{input_length}.json"
-    if nf4_blocksize != None:
-        out_path = out_dir / f"benchmark_{config}_bsz{batch_size}_il{input_length}_block{nf4_blocksize}.json"
-
+    
+    out_path = out_dir / (test_name+".json")
+    print(f"[{test_name}] Starting:")
     benchmark_report = Benchmark.launch(benchmark_config)
     benchmark_report.save_json(out_path)
 
-if __name__ == "__main__":
-    setup_logging(level="INFO")
-
+def parse_args():
     parser = argparse.ArgumentParser(description="bitsandbytes inference benchmark tool")
 
     parser.add_argument("model_id", type=str, help="The model checkpoint to use.")
@@ -181,9 +179,14 @@ if __name__ == "__main__":
 
     parser.add_argument("--iterations", type=int, default=100, help="Number of iterations for each benchmark run")
     parser.add_argument("--warmup-runs", type=int, default=10, help="Number of warmup runs to discard before measurement")
-    parser.add_argument("--nf4-blocksize", nargs="+", type=int, default=[64, 128, 256, 512, 1024, 2048], help="NF4 quantization block size")
+    parser.add_argument("--nf4-blocksize", nargs="+", type=int, default=[64], help="NF4 quantization block size")
+    parser.add_argument("--output-length", type=int, default=64, help="If set, `max_new_tokens` and `min_new_tokens` will be set to this value.")
+    
+    return parser.parse_args()
 
-    args = parser.parse_args()
+if __name__ == "__main__":
+    setup_logging(level="INFO")
+    args = parse_args()
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
