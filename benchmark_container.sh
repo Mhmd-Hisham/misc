@@ -10,8 +10,10 @@ set -e
 REPO_URL=$1
 BRANCH=$2
 MODEL_NAME=$3
+RUN_ID=$4
+COMPUTE_CAPABILITY=$5
 
-OUTPUT_DIR="/workspace/benchmark_results/${BRANCH}_results"
+OUTPUT_DIR="/workspace/benchmark_results/${RUN_ID}/${BRANCH}"
 
 # clone repo
 rm -rf bitsandbytes
@@ -33,10 +35,8 @@ cp /workspace/inference_benchmark.py .
 cp /workspace/functional.py ./bitsandbytes/functional.py # override functional.py to force set the blocksize 
 
 # build for cuda and install
-# set fixed compute capability H100 80GB SXM
-capability=90
 rm -rf build_cuda
-cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=$capability .
+cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=$COMPUTE_CAPABILITY .
 cmake --build build_cuda --config Release
 python -m pip install -e .
 
@@ -45,11 +45,11 @@ cp -f ../inference_benchmark.py ./benchmarking/inference_benchmark.py
 python ./benchmarking/inference_benchmark.py \
     "/workspace/models/${MODEL_NAME}" \
     --configs nf4 \
-    --batches 1 \
+    --batches 1 4 8 \
     --nf4-blocksize 64 \
     --input-length 4096 \
-    --output-length 4096 \
-    --iterations 100 \
+    --output-length 1024 \
+    --iterations 50 \
     --warmup-runs 10 \
     --out-dir "${OUTPUT_DIR}/${MODEL_NAME}"
 

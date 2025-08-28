@@ -3,6 +3,9 @@
 # each benchmark will be run separately in a docker container
 set -e 
 
+OUTPUT_FILE="$1"
+COMPUTE_CAPABILITY="$2"
+
 # download the model at the start
 MODEL_NAME="Llama-3.2-1B"               # 1B Model
 MODEL_NAME="Meta-Llama-3.1-8B-Instruct" # 8B Model
@@ -71,6 +74,7 @@ run_benchmark_in_container() {
     local branch="$2"
     local docker_image="$3"
     local model_name="$4"
+    local run_id="$5"
 
     echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
     echo ">>> Running benchmark: ($branch from $repo_url)"
@@ -94,24 +98,23 @@ run_benchmark_in_container() {
         -v "$(pwd)/benchmark_container.sh:/workspace/benchmark_container.sh" \
         -v "$(pwd)/functional.py:/workspace/functional.py" \
         "$docker_image" \
-        bash /workspace/benchmark_container.sh "$repo_url" "$branch" "$model_name"
+        bash /workspace/benchmark_container.sh "$repo_url" "$branch" "$model_name" "$run_id" "$COMPUTE_CAPABILITY"
 
     sleep 10
 }
 
-# loop through each branch
-for BRANCH in "${FORK_BRANCHES[@]}"; do
-    # benchmark the baseline repo in the container
-    run_benchmark_in_container $BASELINE_URL $BASELINE_BRANCH $DOCKER_IMAGE $MODEL_NAME
+for RUN_ID in 1 2 3 4 5; do
+    # loop through each branch
+    for BRANCH in "${FORK_BRANCHES[@]}"; do
+        # benchmark the baseline repo in the container
+        run_benchmark_in_container $BASELINE_URL $BASELINE_BRANCH $DOCKER_IMAGE $MODEL_NAME "run_$RUN_ID"
 
-    # benchmark the branch
-    run_benchmark_in_container $FORK_URL $BRANCH $DOCKER_IMAGE $MODEL_NAME
-
-    # benchmark the baseline repo one more time to compute variance for accurate results
-    run_benchmark_in_container $BASELINE_URL $BASELINE_BRANCH $DOCKER_IMAGE $MODEL_NAME
+        # benchmark the branch
+        run_benchmark_in_container $FORK_URL $BRANCH $DOCKER_IMAGE $MODEL_NAME $RUN_ID
+    done
 done
 
 nvidia-smi > benchmark_results/nvidia-smi.txt
 
 # zip the results to download with scp
-zip -r "$1" benchmark_results
+zip -r "$OUTPUT_FILE" "benchmark_results"

@@ -137,7 +137,7 @@ def run_benchmark(args, config, batch_size, input_length, nf4_blocksize=None):
         **WEIGHTS_CONFIGS[config],
     )
 
-    test_name = f"benchmark-{config}-bsz{batch_size}-isz{input_length}-osz{args.output_length}-iter{args.iterations}-wrmup-{args.warmup_runs}"
+    test_name = f"benchmark-{config}-bsz-{batch_size}-isz-{input_length}-osz-{args.output_length}-iter{args.iterations}-wrmup-{args.warmup_runs}"
     if nf4_blocksize != None:
         test_name += f"-blksz{nf4_blocksize}"
 
