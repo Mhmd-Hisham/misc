@@ -45,7 +45,7 @@ cp -f ../inference_benchmark.py ./benchmarking/inference_benchmark.py
 python ./benchmarking/inference_benchmark.py \
     "/workspace/models/${MODEL_NAME}" \
     --configs nf4 \
-    --batches 1\
+    --batches 1 \
     --nf4-blocksize 64 \
     --input-length 4096 \
     --output-length 4096 \
