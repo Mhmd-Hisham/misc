@@ -34,7 +34,7 @@ cp /workspace/functional.py ./bitsandbytes/functional.py # override functional.p
 
 # build for cuda and install
 # set fixed compute capability H100 80GB SXM
-capability=9.0
+capability=90
 rm -rf build_cuda
 cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=$capability .
 cmake --build build_cuda --config Release
