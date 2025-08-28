@@ -13,9 +13,7 @@ if [ -d "$MODEL_DIR" ]; then
 else
     read -rsp "Enter your Hugging Face token: " HF_TOKEN
     echo
-
     mkdir -p models
-
     python3 -c "
 from huggingface_hub import snapshot_download
 snapshot_download(
@@ -62,7 +60,6 @@ nvidia-smi -lmc ${MAX_MEMORY},${MAX_MEMORY}
 echo "Setting power limit to ${MAX_POWER}W"
 nvidia-smi -pl ${MAX_POWER}
 
-
 # disable cpu frequency scaling if possible
 if command -v cpupower &> /dev/null; then
     echo "Setting CPU governor to performance mode..."
@@ -75,7 +72,9 @@ run_benchmark_in_container() {
     local docker_image="$3"
     local model_name="$4"
 
+    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
     echo ">>> Running benchmark: ($branch from $repo_url)"
+    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
     
     # clear GPU memory and reset state before each benchmark
     echo "Clearing GPU memory..."
@@ -83,9 +82,8 @@ run_benchmark_in_container() {
     sleep 5
     
     docker run --user root --rm --gpus all \
-        --cpus="8" \
-        --memory="32g" \
-        --memory-swap="32g" \
+        --memory="128g" \
+        --memory-swap="128g" \
         --shm-size="32g" \
         -v "$(pwd)/models:/workspace/models:ro" \
         -v "$(pwd)/benchmark_results:/workspace/benchmark_results" \
@@ -101,12 +99,16 @@ run_benchmark_in_container() {
     sleep 10
 }
 
-# benchmark the baseline repo in the container
-run_benchmark_in_container $BASELINE_URL $BASELINE_BRANCH $DOCKER_IMAGE $MODEL_NAME
-
-# loop through each path
+# loop through each branch
 for BRANCH in "${FORK_BRANCHES[@]}"; do
+    # benchmark the baseline repo in the container
+    run_benchmark_in_container $BASELINE_URL $BASELINE_BRANCH $DOCKER_IMAGE $MODEL_NAME
+
+    # benchmark the branch
     run_benchmark_in_container $FORK_URL $BRANCH $DOCKER_IMAGE $MODEL_NAME
+
+    # benchmark the baseline repo one more time to compute variance for accurate results
+    run_benchmark_in_container $BASELINE_URL $BASELINE_BRANCH $DOCKER_IMAGE $MODEL_NAME
 done
 
 nvidia-smi > benchmark_results/nvidia-smi.txt
