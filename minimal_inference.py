@@ -65,7 +65,7 @@ def main(batch_size):
     prefilled = prefill(prompts, prefill_kwargs)
     print("Prefill completed...")
     # decode call
-    gen_kwargs = {"max_new_tokens": 1}
+    gen_kwargs = {"max_new_tokens": 2}
     responses = generate(prefilled, gen_kwargs)
     print(">>>>>>>>>>>>>>")
     print("Output:")

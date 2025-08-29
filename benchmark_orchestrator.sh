@@ -76,9 +76,9 @@ run_benchmark_in_container() {
     local model_name="$4"
     local run_id="$5"
 
-    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-    echo ">>> Running benchmark: ($branch from $repo_url)"
-    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+    echo ">>> [$run_id] Running benchmark: ($branch from $repo_url)"
+    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
     
     # clear GPU memory and reset state before each benchmark
     echo "Clearing GPU memory..."
@@ -110,7 +110,7 @@ for RUN_ID in 1 2 3 4 5; do
         run_benchmark_in_container $BASELINE_URL $BASELINE_BRANCH $DOCKER_IMAGE $MODEL_NAME "run_$RUN_ID"
 
         # benchmark the branch
-        run_benchmark_in_container $FORK_URL $BRANCH $DOCKER_IMAGE $MODEL_NAME $RUN_ID
+        run_benchmark_in_container $FORK_URL $BRANCH $DOCKER_IMAGE $MODEL_NAME "run_$RUN_ID"
     done
 done
 

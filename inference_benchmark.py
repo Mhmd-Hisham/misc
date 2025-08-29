@@ -34,6 +34,11 @@ import numpy as np
 import argparse
 from pathlib import Path
 
+# remove PER_TOKEN from PyTorch BACKEND
+from optimum_benchmark.scenarios.inference.scenario import PER_TOKEN_BACKENDS
+if "pytorch" in PER_TOKEN_BACKENDS:
+    PER_TOKEN_BACKENDS.remove("pytorch") 
+
 from optimum_benchmark import Benchmark, BenchmarkConfig, InferenceConfig, ProcessConfig, PyTorchConfig
 from optimum_benchmark.logging_utils import setup_logging
 import torch
@@ -116,7 +121,7 @@ def run_benchmark(args, config, batch_size, input_length, nf4_blocksize=None):
     if nf4_blocksize:
         os.environ["BNB_BLOCKSIZE"] = str(nf4_blocksize)
 
-    launcher_config = ProcessConfig(device_isolation=True, device_isolation_action="kill", start_method="spawn")
+    launcher_config = ProcessConfig(device_isolation=True, device_isolation_action="warn", start_method="spawn")
     scenario_config = InferenceConfig(
         latency=True,
         memory=False,
@@ -137,9 +142,9 @@ def run_benchmark(args, config, batch_size, input_length, nf4_blocksize=None):
         **WEIGHTS_CONFIGS[config],
     )
 
-    test_name = f"benchmark-{config}-bsz-{batch_size}-isz-{input_length}-osz-{args.output_length}-iter{args.iterations}-wrmup-{args.warmup_runs}"
+    test_name = f"benchmark-{config}-bsz-{batch_size}-isz-{input_length}-osz-{args.output_length}-iter-{args.iterations}-wrmup-{args.warmup_runs}"
     if nf4_blocksize != None:
-        test_name += f"-blksz{nf4_blocksize}"
+        test_name += f"-blksz-{nf4_blocksize}"
 
     benchmark_config = BenchmarkConfig(
         name=test_name,
