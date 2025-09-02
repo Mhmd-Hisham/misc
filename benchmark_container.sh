@@ -40,6 +40,8 @@ cmake -B build_cuda -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY=$COMPUTE_CAPABIL
 cmake --build build_cuda --config Release
 python -m pip install -e .
 
+nvidia-smi
+
 # run official bnb benchmark
 cp -f ../inference_benchmark.py ./benchmarking/inference_benchmark.py
 python ./benchmarking/inference_benchmark.py \
@@ -56,15 +58,17 @@ python ./benchmarking/inference_benchmark.py \
 # profile the stress test with ncu
 # only benchmark kQuantizeBlockwise and kDequantizeBlockwise kernels
 mkdir -p "$OUTPUT_DIR"
+
+METRICS="gpu__time_duration_measured_user,sm__throughput.avg.pct_of_peak_sustained_elapsed,dram__throughput.avg.pct_of_peak_sustained_elapsed,smsp__sass_branch_instructions_executed.sum,smsp__sass_branch_targets_threads_divergent.sum,sm__achieved_occupancy.avg.pct_of_peak_sustained_active,inst_executed.sum,sm__warps_eligible_per_cycle.avg"
 ncu -f \
-    --set full \
+    --metrics "${METRICS}" \
     --target-processes all \
     --kernel-name "regex:k(Quantize|Dequantize)Blockwise" \
-    --export "${OUTPUT_DIR}/full.ncu-rep" \
+    --export "${OUTPUT_DIR}/report.ncu-rep" \
     python stress_test.py ncu_config.json "${OUTPUT_DIR}/stress_test_ncu_run.csv" "${OUTPUT_DIR}/stress_test_ncu_metadata.csv"
 
 # export ncu report as csv
-ncu --import "${OUTPUT_DIR}/full.ncu-rep" --csv --page raw > "${OUTPUT_DIR}/ncu_rep.csv"
+ncu --import "${OUTPUT_DIR}/report.ncu-rep" --csv --page raw > "${OUTPUT_DIR}/ncu_rep.csv"
 
 # benchmark with my custom stress test
 python stress_test.py normal_config.json "${OUTPUT_DIR}/stress_test_run.csv" "${OUTPUT_DIR}/stress_test_metadata.csv"

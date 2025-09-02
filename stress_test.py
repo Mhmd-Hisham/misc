@@ -21,6 +21,7 @@ torch.backends.cudnn.deterministic = True
 # check if bfloat16 is supported
 BFLOAT16_SUPPORT = torch.cuda.is_bf16_supported()
 
+
 def clear_l2_cache(device=0):
     # get cache size from device
     cache_size = torch.cuda.get_device_properties(device).L2_cache_size
@@ -29,9 +30,11 @@ def clear_l2_cache(device=0):
     torch.cuda.synchronize()
     del dummy_data
 
-def write_to_logger(params, n_times):
-    for __ in range(n_times):
-        LOGGER.append(params)
+
+def write_to_logger(params: dict, n_times: int):
+    for _ in range(n_times):
+        LOGGER.append(params.copy())
+
 
 def benchmark_cuda_kernel(
     iterations: int, warmup_iterations: int, params_to_log: dict, n_logs: int, kernel: Callable, *args, **kwargs
@@ -40,7 +43,7 @@ def benchmark_cuda_kernel(
     params_to_log["is_warmup"] = True
     for _ in range(warmup_iterations):
         kernel(*args, **kwargs)
-        write_to_logger(params_to_log, 1)
+        write_to_logger(params_to_log, n_logs)
     torch.cuda.synchronize()
 
     # init cuda events
@@ -54,7 +57,7 @@ def benchmark_cuda_kernel(
         start_events[i].record()
         kernel(*args, **kwargs)
         end_events[i].record()
-        write_to_logger(params_to_log, 2)
+        write_to_logger(params_to_log, n_logs)
     torch.cuda.synchronize()
 
     times = [s.elapsed_time(e) for s, e in zip(start_events, end_events)]
@@ -69,12 +72,12 @@ def quantize_dequantize_kernel(A1, blocksize=0, quant_type=0):
     F.dequantize_4bit(qa, SA, blocksize=blocksize, quant_type=quant_type)
 
 
-def save_metadata(path_to_json):
+def save_metadata(path_to_json: str):
     df = pd.DataFrame(LOGGER)
-    df.to_csv(path_to_json)
+    df.to_csv(path_to_json, index=False)
 
 
-def get_stats(prefix, times):
+def get_stats(prefix: str, times: list):
     times = np.array(times)
     return {
         f"{prefix}_total": float(np.sum(times)),
@@ -105,7 +108,10 @@ def main():
                             "blocksize": blocksize,
                             "quant_type": quant_type,
                             "dtype": dtype,
+                            "is_warmup": True
                         }
+                        # write the first "quantize_4bit" above as warmup to skip it during analysis
+                        write_to_logger(params_to_log, 1)
 
                         print(f"[{device}-{tensor_shape}-{dtype}-{quant_type}-{blocksize}]: ", flush=True, end="")
 
