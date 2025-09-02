@@ -184,7 +184,7 @@ if __name__ == "__main__":
 
     CONFIG_FILE = sys.argv[1]
     OUTPUT_CSV = sys.argv[2]
-    METADATA_CSV = sys.argv[2]
+    METADATA_CSV = sys.argv[3]
 
     with open(CONFIG_FILE, "r") as f:
         config = json.load(f)

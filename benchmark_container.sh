@@ -47,23 +47,24 @@ python ./benchmarking/inference_benchmark.py \
     --configs nf4 \
     --batches 1 4 8 \
     --nf4-blocksize 64 \
-    --input-length 4096 \
-    --output-length 1024 \
-    --iterations 50 \
+    --input-length 2048 \
+    --output-length 128 \
+    --iterations 35 \
     --warmup-runs 10 \
     --out-dir "${OUTPUT_DIR}/${MODEL_NAME}"
 
 # profile the stress test with ncu
 # only benchmark kQuantizeBlockwise and kDequantizeBlockwise kernels
-# ncu -f \
-#     --set full \
-#     --target-processes all \
-#     --kernel-name "regex:k(Quantize|Dequantize)Blockwise" \
-#     --export "${OUTPUT_DIR}/${BRANCH}.ncu-rep" \
-#     python stress_test.py ncu_config.json "${OUTPUT_DIR}/stress_test_ncu_run.csv" "${OUTPUT_DIR}/stress_test_ncu_metadata.csv"
+mkdir -p "$OUTPUT_DIR"
+ncu -f \
+    --set full \
+    --target-processes all \
+    --kernel-name "regex:k(Quantize|Dequantize)Blockwise" \
+    --export "${OUTPUT_DIR}/full.ncu-rep" \
+    python stress_test.py ncu_config.json "${OUTPUT_DIR}/stress_test_ncu_run.csv" "${OUTPUT_DIR}/stress_test_ncu_metadata.csv"
 
-# # export ncu report as csv
-# ncu --import "${OUTPUT_DIR}/${BRANCH}.ncu-rep" --csv --page raw > "${OUTPUT_DIR}/ncu_rep.csv"
+# export ncu report as csv
+ncu --import "${OUTPUT_DIR}/full.ncu-rep" --csv --page raw > "${OUTPUT_DIR}/ncu_rep.csv"
 
-# # benchmark with my custom stress test
-# python stress_test.py normal_config.json "${OUTPUT_DIR}/stress_test_run.csv" "${OUTPUT_DIR}/stress_test_metadata.csv"
+# benchmark with my custom stress test
+python stress_test.py normal_config.json "${OUTPUT_DIR}/stress_test_run.csv" "${OUTPUT_DIR}/stress_test_metadata.csv"
