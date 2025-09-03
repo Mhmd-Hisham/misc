@@ -104,6 +104,7 @@ def main():
 
                         # for NCU only
                         params_to_log = {
+                            "access_pattern": None,
                             "tensor_shape": A1.shape[0],
                             "blocksize": blocksize,
                             "quant_type": quant_type,
@@ -116,6 +117,7 @@ def main():
                         print(f"[{device}-{tensor_shape}-{dtype}-{quant_type}-{blocksize}]: ", flush=True, end="")
 
                         # benchmark "F.quantize_4bit"
+                        params_to_log["access_pattern"] = "sequential"
                         times = benchmark_cuda_kernel(
                             ITERATIONS,
                             WARMUP_ITER,
@@ -129,6 +131,7 @@ def main():
                         quantization_stats = get_stats("quantize_latency", times)
 
                         # benchmark "F.dequantize_4bit"
+                        params_to_log["access_pattern"] = "sequential"
                         times = benchmark_cuda_kernel(
                             ITERATIONS,
                             WARMUP_ITER,
@@ -144,6 +147,7 @@ def main():
 
                         # benchmark "F.quantize_4bit followed by F.dequantize_4bit"
                         # log the parameters two times, one for quantization and one for the dequantization
+                        params_to_log["access_pattern"] = "interleaved"
                         times = benchmark_cuda_kernel(
                             ITERATIONS,
                             WARMUP_ITER,
