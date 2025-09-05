@@ -32,6 +32,7 @@ DOCKER_IMAGE="mhmdhisham/pytorch-2.8.0-cuda12.9-cudnn9-devel-ncu:testing"
 FORK_URL="https://github.com/Mhmd-Hisham/bitsandbytes.git"
 BASELINE_URL="https://github.com/bitsandbytes-foundation/bitsandbytes.git"
 BASELINE_BRANCH="main"
+BASELINE_COMMIT="639f8c05a4fac7c763a6e055ee59a5698de0a7a7"
 
 # pull the docker image
 docker pull $DOCKER_IMAGE
@@ -40,14 +41,6 @@ docker pull $DOCKER_IMAGE
 FORK_BRANCHES=(
     "cuda-branchless-dequantization-float32-lut"
 )
-    # "cuda-slow-dequantization"
-    # "cuda-branchless-quantization-float16-lut-bitwise"
-    # "cuda-branchless-quantization-float16-lut-bitwise-dequantization-float32-lut"
-    # "cuda-branchless-quantization-float32"
-    # "cuda-branchless-quantization-float16"
-    # "cuda-branchless-quantization-float32-lut"
-    # "cuda-branchless-quantization-float16-lut"
-    # "cuda-branchless-quantization-float32-lut-bitwise"
 
 mkdir -p benchmark_results
 nvidia-smi -pm 1                       # enable persistence mode, stop gpu from powering down when idle
@@ -85,7 +78,7 @@ run_benchmark_in_container() {
     nvidia-smi --gpu-reset || echo "GPU reset not supported, continuing..."
     sleep 5
     
-    docker run --user root --rm --gpus all \
+    docker run --user root --rm --gpus all --cap-add=SYS_ADMIN \
         --memory="128g" \
         --memory-swap="128g" \
         --shm-size="32g" \
@@ -98,12 +91,12 @@ run_benchmark_in_container() {
         -v "$(pwd)/benchmark_container.sh:/workspace/benchmark_container.sh" \
         -v "$(pwd)/functional.py:/workspace/functional.py" \
         "$docker_image" \
-        bash /workspace/benchmark_container.sh "$repo_url" "$branch" "$model_name" "$run_id" "$COMPUTE_CAPABILITY"
+        bash /workspace/benchmark_container.sh "$repo_url" "$branch" "$model_name" "$run_id" "$COMPUTE_CAPABILITY" "$BASELINE_COMMIT"
 
     sleep 10
 }
 
-for RUN_ID in 1 2 3 4 5; do
+for RUN_ID in 1 2 3; do
     # loop through each branch
     for BRANCH in "${FORK_BRANCHES[@]}"; do
         # benchmark the baseline repo in the container

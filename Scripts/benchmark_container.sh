@@ -12,6 +12,7 @@ BRANCH=$2
 MODEL_NAME=$3
 RUN_ID=$4
 COMPUTE_CAPABILITY=$5
+COMMIT=$6
 
 OUTPUT_DIR="/workspace/benchmark_results/${RUN_ID}/${BRANCH}"
 
@@ -20,6 +21,7 @@ rm -rf bitsandbytes
 git clone "$REPO_URL" bitsandbytes
 cd bitsandbytes
 git checkout "$BRANCH"
+git checkout "$COMMIT"
 
 # improve reproducibility
 # https://docs.nvidia.com/cuda/cublas/index.html#results-reproducibility
@@ -47,11 +49,10 @@ cp -f ../inference_benchmark.py ./benchmarking/inference_benchmark.py
 python ./benchmarking/inference_benchmark.py \
     "/workspace/models/${MODEL_NAME}" \
     --configs nf4 \
-    --batches 1 4 8 \
-    --nf4-blocksize 64 \
+    --batches 1 4 8 16 \
     --input-length 2048 \
     --output-length 128 \
-    --iterations 35 \
+    --iterations 10 \
     --warmup-runs 10 \
     --out-dir "${OUTPUT_DIR}/${MODEL_NAME}"
 

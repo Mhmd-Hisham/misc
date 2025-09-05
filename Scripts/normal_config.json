@@ -1,9 +1,9 @@
 {
-  "ITERATIONS": 100,
+  "ITERATIONS": 1000,
   "WARMUP_ITER": 10,
   "DEVICE": ["cuda"],
   "DTYPE": ["float32"],
   "QUANT_TYPE": ["nf4"],
-  "BLOCKSIZE": [64, 128, 256, 512, 1024, 2048, 4096],
+  "BLOCKSIZE": [64],
   "TENSOR_SHAPE": [1024, 2048, 4096, 8192, 16384]
 }
