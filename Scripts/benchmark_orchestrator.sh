@@ -68,6 +68,7 @@ run_benchmark_in_container() {
     local docker_image="$3"
     local model_name="$4"
     local run_id="$5"
+    local commit_hash="$6";
 
     echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
     echo ">>> [$run_id] Running benchmark: ($branch from $repo_url)"
@@ -91,7 +92,7 @@ run_benchmark_in_container() {
         -v "$(pwd)/benchmark_container.sh:/workspace/benchmark_container.sh" \
         -v "$(pwd)/functional.py:/workspace/functional.py" \
         "$docker_image" \
-        bash /workspace/benchmark_container.sh "$repo_url" "$branch" "$model_name" "$run_id" "$COMPUTE_CAPABILITY" "$BASELINE_COMMIT"
+        bash /workspace/benchmark_container.sh "$repo_url" "$branch" "$model_name" "$run_id" "$COMPUTE_CAPABILITY" "$commit_hash"
 
     sleep 10
 }
@@ -100,7 +101,7 @@ for RUN_ID in 1 2 3; do
     # loop through each branch
     for BRANCH in "${FORK_BRANCHES[@]}"; do
         # benchmark the baseline repo in the container
-        run_benchmark_in_container $BASELINE_URL $BASELINE_BRANCH $DOCKER_IMAGE $MODEL_NAME "run_$RUN_ID"
+        run_benchmark_in_container $BASELINE_URL $BASELINE_BRANCH $DOCKER_IMAGE $MODEL_NAME "run_$RUN_ID" $BASELINE_COMMIT
 
         # benchmark the branch
         run_benchmark_in_container $FORK_URL $BRANCH $DOCKER_IMAGE $MODEL_NAME "run_$RUN_ID"

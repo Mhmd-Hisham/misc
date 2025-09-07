@@ -21,7 +21,9 @@ rm -rf bitsandbytes
 git clone "$REPO_URL" bitsandbytes
 cd bitsandbytes
 git checkout "$BRANCH"
-git checkout "$COMMIT"
+if [ -n "$COMMIT" ]; then
+    git checkout "$COMMIT"
+fi
 
 # improve reproducibility
 # https://docs.nvidia.com/cuda/cublas/index.html#results-reproducibility
