@@ -136,6 +136,7 @@ def get_stats(prefix: str, times: list):
         f"{prefix}_max": float(np.max(times)),
         f"{prefix}_p95": float(np.percentile(times, 95)),
         f"{prefix}_count": times.shape[0],
+        f"{prefix}_values": times.tolist(),
     }
 
 def load_and_quantize_model(model_path, config, device):
