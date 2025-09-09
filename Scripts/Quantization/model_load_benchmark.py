@@ -17,12 +17,12 @@ from huggingface_hub import snapshot_download
 BFLOAT16_SUPPORT = torch.cuda.get_device_capability()[0] >= 8
 
 WEIGHTS_CONFIGS = {
-    "fp16": {"torch_dtype": "float16", "quantization_scheme": None, "quantization_config": {}},
-    "bf16": {"torch_dtype": "bfloat16", "quantization_scheme": None, "quantization_config": {}},
+    "fp16": {"torch_dtype": "float16", "quantization_config": {}},
+    "bf16": {"torch_dtype": "bfloat16", "quantization_config": {}},
     "nf4": {
         "torch_dtype": "bfloat16" if BFLOAT16_SUPPORT else "float16",
-        "quantization_scheme": "bnb",
         "quantization_config": {
+            "quant_method": "bnb",
             "load_in_4bit": True,
             "bnb_4bit_quant_type": "nf4",
             "bnb_4bit_use_double_quant": False,
@@ -31,8 +31,8 @@ WEIGHTS_CONFIGS = {
     },
     "nf4-dq": {
         "torch_dtype": "bfloat16" if BFLOAT16_SUPPORT else "float16",
-        "quantization_scheme": "bnb",
         "quantization_config": {
+            "quant_method": "bnb",
             "load_in_4bit": True,
             "bnb_4bit_quant_type": "nf4",
             "bnb_4bit_use_double_quant": True,
@@ -41,16 +41,16 @@ WEIGHTS_CONFIGS = {
     },
     "int8-decomp": {
         "torch_dtype": "float16",
-        "quantization_scheme": "bnb",
         "quantization_config": {
+            "quant_method": "bnb",
             "load_in_8bit": True,
             "llm_int8_threshold": 6.0,
         },
     },
     "int8": {
         "torch_dtype": "float16",
-        "quantization_scheme": "bnb",
         "quantization_config": {
+            "quant_method": "bnb",
             "load_in_8bit": True,
             "llm_int8_threshold": 0.0,
         },
@@ -210,7 +210,7 @@ def main(args):
         "model_name": args.model_id,
         "iterations": args.iterations,
         "warmup_iterations": args.warmup_runs,
-        "quantization_config": WEIGHTS_CONFIGS[args.config],
+        "quantization_config": str(WEIGHTS_CONFIGS[args.config]),
         "cuda_event_times": cuda_stats,
         "perf_counter_times": perf_stats,
     }
