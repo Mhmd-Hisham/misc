@@ -57,22 +57,9 @@ WEIGHTS_CONFIGS = {
     },
 }
 
-def clear_memory(device):
-    # get cache size from device
+def clear_memory():
     torch.cuda.empty_cache()
-    free_mem = torch.cuda.mem_get_info(device)[0]
-    # use 70% of memory, 4 bytes per float32
-    cache_flush_size = int(free_mem * 0.7 // 4)
-    if cache_flush_size <= 0:
-        return
-
-    try:
-        dummy_data = torch.empty(cache_flush_size, dtype=torch.float32, device=device)
-        dummy_data.zero_()
-        torch.cuda.synchronize()
-        del dummy_data
-    except Exception as e:
-        print(f"Warning: cache flush failed: {e}")
+    torch.cuda.synchronize()
     gc.collect()
 
 def set_seed(seed=42):
@@ -91,12 +78,14 @@ def set_seed(seed=42):
     os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 def benchmark_function(
-    device: str, iterations: int, warmup_iterations: int, function: Callable, *args, **kwargs
+    iterations: int, warmup_iterations: int, function: Callable, *args, **kwargs
 ):
     print(f"Warming up for {warmup_iterations} iterations...")
     # warmup iterations
     for _ in range(warmup_iterations):
-        function(*args, **kwargs)
+        clear_memory()
+        model = function(*args, **kwargs)
+        del model
     torch.cuda.synchronize()
 
     # init cuda events and perf counters
@@ -109,7 +98,7 @@ def benchmark_function(
         if (i+1) % 5 == 0 or i == 0:
             print(f"Iteration {i+1}/{iterations}", flush=True)
         set_seed()
-        clear_memory(device)
+        clear_memory()
         torch.cuda.synchronize()
         start_events[i].record()
         perf_start_events.append(time.perf_counter())
@@ -195,7 +184,6 @@ def main(args):
     print("Starting benchmark...")
     # benchmark quantization and in-memory loading
     times, perf_times = benchmark_function(
-        args.device,
         args.iterations,
         args.warmup_runs,
         load_and_quantize_model,
