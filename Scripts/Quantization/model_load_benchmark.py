@@ -11,36 +11,37 @@ import json
 
 import numpy as np
 import torch
-from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM
+from transformers.quantizers import AutoQuantizationConfig
 from huggingface_hub import snapshot_download
 
 BFLOAT16_SUPPORT = torch.cuda.get_device_capability()[0] >= 8
 
 WEIGHTS_CONFIGS = {
-    "fp16": {"torch_dtype": "float16", "quantization_config": {}},
-    "bf16": {"torch_dtype": "bfloat16", "quantization_config": {}},
+    "fp16": {"torch_dtype": torch.float16, "quantization_config": {}},
+    "bf16": {"torch_dtype": torch.bfloat16, "quantization_config": {}},
     "nf4": {
-        "torch_dtype": "bfloat16" if BFLOAT16_SUPPORT else "float16",
+        "torch_dtype": torch.bfloat16 if BFLOAT16_SUPPORT else torch.float16,
         "quantization_config": {
             "quant_method": "bnb",
             "load_in_4bit": True,
             "bnb_4bit_quant_type": "nf4",
             "bnb_4bit_use_double_quant": False,
-            "bnb_4bit_compute_dtype": torch.bfloat16 if BFLOAT16_SUPPORT else "float16",
+            "bnb_4bit_compute_dtype": torch.bfloat16 if BFLOAT16_SUPPORT else torch.float16,
         },
     },
     "nf4-dq": {
-        "torch_dtype": "bfloat16" if BFLOAT16_SUPPORT else "float16",
+        "torch_dtype": torch.bfloat16 if BFLOAT16_SUPPORT else torch.float16,
         "quantization_config": {
             "quant_method": "bnb",
             "load_in_4bit": True,
             "bnb_4bit_quant_type": "nf4",
             "bnb_4bit_use_double_quant": True,
-            "bnb_4bit_compute_dtype": torch.bfloat16 if BFLOAT16_SUPPORT else "float16",
+            "bnb_4bit_compute_dtype": torch.bfloat16 if BFLOAT16_SUPPORT else torch.float16,
         },
     },
     "int8-decomp": {
-        "torch_dtype": "float16",
+        "torch_dtype": torch.float16,
         "quantization_config": {
             "quant_method": "bnb",
             "load_in_8bit": True,
@@ -48,7 +49,7 @@ WEIGHTS_CONFIGS = {
         },
     },
     "int8": {
-        "torch_dtype": "float16",
+        "torch_dtype": torch.float16,
         "quantization_config": {
             "quant_method": "bnb",
             "load_in_8bit": True,
@@ -129,11 +130,16 @@ def get_stats(prefix: str, times: list):
     }
 
 def load_and_quantize_model(model_path, config, device):
+    q_config = WEIGHTS_CONFIGS[config]
+    quantization_config = None
+    if q_config["quantization_config"]:
+        quantization_config = AutoQuantizationConfig.from_dict(q_config["quantization_config"])
     return AutoModelForCausalLM.from_pretrained(
         model_path,
-        device_map=device,
+        device_map={"": device},
         local_files_only=True,
-        **WEIGHTS_CONFIGS[config]
+        torch_dtype=q_config["torch_dtype"],
+        quantization_config=quantization_config
     )
 
 def parse_args():
